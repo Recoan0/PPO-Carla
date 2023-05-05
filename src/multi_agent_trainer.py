@@ -91,19 +91,19 @@ class MultiAgentTrainer():
                 
                 if self.cfg.training.should:
                     if epoch <= self.cfg.collection.train.stop_after_epochs:
-                        metrics_train, epoch_reward = self.collect_experience(self.train_env, epoch, mode='train')
+                        logs_train, epoch_reward = self.collect_experience(self.train_env, epoch, mode='train')
                         self.train_epoch_rewards.append(epoch_reward)
                         self.train_total_epoch_rewards.append(epoch_reward.mean())
-                        to_log += metrics_train
+                        to_log += logs_train
                 
                         # update PPO agent
                         self.agent.update()
                     
                 if self.cfg.evaluation.should and (epoch % self.cfg.evaluation.every == 0):
-                    metrics_test, epoch_reward = self.collect_experience(self.test_env, epoch, mode='test')
+                    logs_test, epoch_reward = self.collect_experience(self.test_env, epoch, mode='test')
                     self.test_epoch_rewards.append(epoch_reward)
                     self.test_total_epoch_rewards.append(epoch_reward.mean())
-                    to_log += metrics_test
+                    to_log += logs_test
                     
                     self.agent.buffer.clear()
                 
@@ -111,7 +111,6 @@ class MultiAgentTrainer():
                     reward_dict = {'train': self.train_epoch_rewards, 'train_total': self.train_total_epoch_rewards,
                                    'test': self.test_epoch_rewards, 'test_total': self.test_total_epoch_rewards}
                     self.save_checkpoint(epoch, reward_dict, save_agent_only=not self.cfg.common.do_checkpoint)
-
 
                 to_log.append({'duration': (time.time() - start_time) / 3600})
                 for metrics in to_log:

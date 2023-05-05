@@ -42,12 +42,12 @@ class CarlaManager:
             stdout=open(os.devnull, "w")
         )
 
-    def launch_client(self):
+    def launch_client(self, force_resume=False):
         """
         Launches the client process.
         """
         multiprocessing.set_start_method('spawn', force=True)
-        self.client_process = multiprocessing.Process(target=ppo_multi_agent_main, args=([self.carla_instance]))
+        self.client_process = multiprocessing.Process(target=ppo_multi_agent_main, args=([self.carla_instance, force_resume]))
         self.client_process.start()
 
     def server_is_live(self):
@@ -73,7 +73,7 @@ class CarlaManager:
         except subprocess.CalledProcessError:
             return None
 
-    def launch(self):
+    def launch(self, force_resume=False):
         """
         Launch both the server and the client. Include a short delay between server and client launch to make sure
         server is running.
@@ -85,7 +85,7 @@ class CarlaManager:
             time.sleep(5)
 
         print("Launching client")
-        self.launch_client()
+        self.launch_client(force_resume)
 
     def tear_down(self):
         """
@@ -120,8 +120,26 @@ class CarlaManager:
             if not self.client_process.is_alive():
                 print("Client terminated! Exiting...")
                 self.tear_down()
+                self.manage_resume()  # restart server after crash to continue. May be circumvented by carla timeout exception
+                return
+            
+    def manage_resume(self):
+        self.launch(force_resume=True)
+        while True:
+            time.sleep(30)
+            if not self.server_is_live():
+                print("Restarting server ...")	
+                self.tear_down()
+                self.launch_server()
+                while not self.server_is_live():
+                    time.sleep(5)
+            if not self.client_process.is_alive():
+                print("Client terminated! Exiting...")
+                self.tear_down()
+                self.manage_resume()  # restart server after crash to continue. May be circumvented by carla timeout exception
                 return
 
+# @hydra.main(config_path="config", config_name="multi_agent_trainer")
 def main():
     #os.environ["HYDRA_FULL_ERROR"] = "1"
     
@@ -146,7 +164,9 @@ def main():
     args.carla_location = "/opt/carla-simulator/CarlaUE4.sh"
     args.render = False
     manager = CarlaManager(args)
+    run_manager(manager)
     
+def run_manager(manager):
     try:
         manager.manage()
     except KeyboardInterrupt:
@@ -156,6 +176,23 @@ def main():
         import traceback
         print(traceback.format_exc())
         print(e)
+        if 'while waiting for the simulator' in str(e):
+            print('Restarting because of carla timeout')
+            run_resume_manager(manager)
+            
+def run_resume_manager(manager):
+    try:
+        manager.manage_resume()
+    except KeyboardInterrupt:
+        manager.tear_down()
+    except Exception as e:
+        manager.tear_down()
+        import traceback
+        print(traceback.format_exc())
+        print(e)
+        if 'while waiting for the simulator' in str(e):
+            print('Restarting because of carla timeout')
+            run_resume_manager(manager)
 
 if __name__ == '__main__':
     main()
