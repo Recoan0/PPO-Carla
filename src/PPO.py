@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import MultivariateNormal
 from torch.distributions import Categorical
+from tqdm import tqdm
+import numpy as np
 
 
 ################################## PPO Policy ##################################
@@ -38,8 +40,10 @@ class ActorCritic(nn.Module):
         self.conv4 = nn.Conv2d(64, 64, 3, stride=1, padding=1)
         self.maxp4 = nn.MaxPool2d(2, 2)
         
-        self.critic_linear = nn.Linear(1024, 1)
-        self.actor_linear = nn.Linear(1024, action_dim)
+        self.common_linear = nn.Linear(1024, 512)
+        
+        self.critic_linear = nn.Linear(512, 1)
+        self.actor_linear = nn.Linear(512, action_dim)
         
         # self.actor = nn.Sequential(
         #                 nn.Linear(state_dim, 64),
@@ -68,6 +72,8 @@ class ActorCritic(nn.Module):
         x = F.relu(self.maxp3(self.conv3(x)))
         x = F.relu(self.maxp4(self.conv4(x)))
         x = torch.flatten(x, start_dim=1)
+        
+        x = F.relu(self.common_linear(x))
         
         logits_actions = self.actor_linear(x)
         means_values = self.critic_linear(x)
@@ -116,8 +122,9 @@ class PPO:
         self.MseLoss = nn.MSELoss()
 
     def select_action(self, state):
+        assert torch.is_tensor(state)
         with torch.no_grad():
-            state = torch.FloatTensor(state, device=self.device)
+            # No need to convert state to Tensor, trainer already passes tensor
             action, action_logprob, state_val = self.policy_old.act(state)
         
         self.buffer.states.append(state)
@@ -125,33 +132,48 @@ class PPO:
         self.buffer.logprobs.append(action_logprob)
         self.buffer.state_values.append(state_val)
 
-        return action.item()
+        return action.detach().cpu().numpy()
 
     def update(self):
+        assert len(self.buffer.states) == len(self.buffer.actions) == len(self.buffer.rewards) == \
+            len(self.buffer.is_terminals) == len(self.buffer.state_values) == len(self.buffer.logprobs), "Buffer not updated correctly"
+        
         # Monte Carlo estimate of returns
-        rewards = []
-        discounted_reward = 0
-        for reward, is_terminal in zip(reversed(self.buffer.rewards), reversed(self.buffer.is_terminals)):
-            if is_terminal:
-                discounted_reward = 0
-            discounted_reward = reward + (self.gamma * discounted_reward)
-            rewards.insert(0, discounted_reward)
+        all_rewards = []
+        for i in range(len(self.buffer.states[0])):
+            rewards = []
+            discounted_reward = 0
+            for reward, is_terminal in zip(reversed(self.buffer.rewards), reversed(self.buffer.is_terminals)):
+                if is_terminal[i]:
+                    discounted_reward = 0
+                discounted_reward = reward[i] + (self.gamma * discounted_reward)
+                rewards.insert(0, discounted_reward)
+            all_rewards.append(rewards)
+            
+        rewards = np.vstack(all_rewards, dtype=np.float32)
             
         # Normalizing the rewards
         rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
 
         # convert list to tensor
-        old_states = torch.squeeze(torch.stack(self.buffer.states, dim=0)).detach().to(self.device)
-        old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach().to(self.device)
-        old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach().to(self.device)
-        old_state_values = torch.squeeze(torch.stack(self.buffer.state_values, dim=0)).detach().to(self.device)
+        old_states = torch.squeeze(torch.stack(self.buffer.states, dim=1)).detach().to(self.device)
+        old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=1)).detach().to(self.device)
+        old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=1)).detach().to(self.device)
+        old_state_values = torch.squeeze(torch.stack(self.buffer.state_values, dim=1)).detach().to(self.device)
+        
+        # Flatten tensors
+        rewards = torch.flatten(rewards, start_dim=0, end_dim=1)
+        old_states = torch.flatten(old_states, start_dim=0, end_dim=1)
+        old_actions = torch.flatten(old_actions, start_dim=0, end_dim=1)
+        old_logprobs = torch.flatten(old_logprobs, start_dim=0, end_dim=1)
+        old_state_values = torch.flatten(old_state_values, start_dim=0, end_dim=1)
 
         # calculate advantages
         advantages = rewards.detach() - old_state_values.detach()
 
         # Optimize policy for K epochs
-        for _ in range(self.K_epochs):
+        for _ in tqdm(range(self.K_epochs), desc=f"Training PPO"):
 
             # Evaluating old actions and values
             logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)

@@ -2,8 +2,6 @@ defaults:
   - _self_
   - agent: default
   - env: multi_agent
-  - datasets: default
-  - collector: multi_agent
 
 wandb:
   mode: offline
@@ -23,7 +21,7 @@ common:
   device: cuda:0
   do_checkpoint: True
   seed: 0
-  sequence_length: ${world_model.max_blocks}
+  sequence_length: 20 # ${world_model.max_blocks}
   resume: False # set by resume.sh script only.
 
 collection:
@@ -35,16 +33,14 @@ collection:
       epsilon: 0.01
       should_sample: True
       temperature: 1.0
-      num_steps: 480 # TODO 240 # 8 fps * 60s * 2min / 2 steps per action = 480 steps for 2 min of simulation
+      num_steps: 20 # TODO 240 # 8 fps * 60s * 2min / 2 steps per action = 480 steps for 2 min of simulation
   test:
     num_envs: 1
-    num_episodes_to_save: ${collection.train.num_episodes_to_save}
     config:
       epsilon: 0.0
       should_sample: True
       temperature: 0.5
-      num_steps: 480
-      burn_in: ${training.actor_critic.burn_in}
+      num_steps: 20
 
 training:
   should: True
@@ -65,7 +61,3 @@ training:
 evaluation:
   should: True # False # TODO True
   every: 5
-  actor_critic:
-    num_episodes_to_save: ${training.actor_critic.batch_num_samples}
-    horizon: ${training.actor_critic.imagine_horizon}
-    start_after_epochs: ${training.actor_critic.start_after_epochs}

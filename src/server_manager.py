@@ -13,7 +13,7 @@ import psutil
 import argparse
 import multiprocessing
 import re
-from main import _main as ppo_main
+from main import _multi_agent_main as ppo_multi_agent_main
 import hydra
 import sys
 
@@ -47,7 +47,7 @@ class CarlaManager:
         Launches the client process.
         """
         multiprocessing.set_start_method('spawn', force=True)
-        self.client_process = multiprocessing.Process(target=ppo_main, args=([self.carla_instance]))
+        self.client_process = multiprocessing.Process(target=ppo_multi_agent_main, args=([self.carla_instance]))
         self.client_process.start()
 
     def server_is_live(self):

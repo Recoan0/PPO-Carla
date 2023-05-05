@@ -47,7 +47,7 @@ def make_carla(id, size=64, max_episode_steps=None, noop_max=30, frame_skip=4, d
     return env
 
 
-def make_multi_agent_carla(id, size=64, max_episode_steps=None, noop_max=30, frame_skip=2, done_on_life_loss=False, clip_reward=False):
+def make_multi_agent_carla(id, size=64, max_episode_steps=None, noop_max=30, frame_skip=2, done_on_life_loss=False, clip_reward=False, n_agents=10):
     # NOTE noop_max and done_on_life_loss are ignored for multi agent carla env
     cfg = Config.fromfile("src/envs/carla_config.py")
     params = cfg.env
@@ -56,6 +56,7 @@ def make_multi_agent_carla(id, size=64, max_episode_steps=None, noop_max=30, fra
         port = 2100 + id * 10,
         tm_port = 8100 + id * 10
     )
+    params['n_agents'] = n_agents
     # env = gym.make("carla-ma-cbv-v0", **params)
     env = gym.make("carla-ma-v0", **params)
     env = CarlaMultiAgentObsWrapper(env)

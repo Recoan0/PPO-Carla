@@ -3,5 +3,5 @@ lr_critic: 0.001 # learning rate for critic network
 K_epochs: 80   # update policy for K epochs in one PPO update
 eps_clip: 0.2  # clip parameter for PPO
 gamma: 0.99  # discount factor
-state_dict: [3, 64, 64]
+state_dim: [3, 64, 64]
 
