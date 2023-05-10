@@ -8,16 +8,20 @@ from multi_agent_trainer import MultiAgentTrainer
 # from distributed_trainer import DistributedTrainer
 
 
-@hydra.main(config_path="config", config_name="multi_agent_trainer")
-def multi_agent_main(cfg: DictConfig, force_resume):
+def multi_agent_main(force_resume):
     print(f"Output directory: {os.getcwd()}")
-    cfg.common.resume = cfg.common.resume or force_resume
-    # logging.getLogger().setLevel(logging.WARNING)
-    trainer = MultiAgentTrainer(cfg)
-    trainer.run()
+    logging.getLogger().setLevel(logging.WARNING)
+    
+    @hydra.main(config_path="config", config_name="multi_agent_trainer")
+    def inner_ma_main(cfg):
+        cfg.common.resume = cfg.common.resume or force_resume
+        trainer = MultiAgentTrainer(cfg)
+        trainer.run()
+        
+    inner_ma_main()
 
 def _multi_agent_main(carla_instance, force_resume):
-    multi_agent_main()
+    multi_agent_main(force_resume)
 
 if __name__ == "__main__":
     multi_agent_main()

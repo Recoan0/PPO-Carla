@@ -145,6 +145,7 @@ class MultiAgentTrainer():
         
         env.close()
         
+        print(f'Episode average reward: {current_ep_reward.mean()}')
         metrics_collect['total_epoch_returns'] = current_ep_reward.mean()
         metrics_collect = {f'{mode}/{k}': v for k, v in metrics_collect.items()}
         to_log.append(metrics_collect)

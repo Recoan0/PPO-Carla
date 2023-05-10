@@ -8,7 +8,7 @@ wandb:
   project: rl-simulator
   entity: null
   name: null
-  group: iris
+  group: ppo
   tags: null
   notes: null
 
@@ -33,14 +33,14 @@ collection:
       epsilon: 0.01
       should_sample: True
       temperature: 1.0
-      num_steps: 20 # TODO 240 # 8 fps * 60s * 2min / 2 steps per action = 480 steps for 2 min of simulation
+      num_steps: 480 # TODO 240 # 8 fps * 60s * 2min / 2 steps per action = 480 steps for 2 min of simulation
   test:
     num_envs: 1
     config:
       epsilon: 0.0
       should_sample: True
       temperature: 0.5
-      num_steps: 20
+      num_steps: 480
 
 training:
   should: True

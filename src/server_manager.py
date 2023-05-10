@@ -120,7 +120,7 @@ class CarlaManager:
             if not self.client_process.is_alive():
                 print("Client terminated! Exiting...")
                 self.tear_down()
-                self.manage_resume()  # restart server after crash to continue. May be circumvented by carla timeout exception
+                # self.manage_resume()  # restart server after crash to continue. May be circumvented by carla timeout exception
                 return
             
     def manage_resume(self):
